@@ -1,0 +1,46 @@
+{
+  "meta": { "lastTouchedVersion": "2026.9.4" },
+  "gateway": {
+    "auth": { "token": "***" },
+    "bind": "loopback"
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "token": "***",
+      "allowFrom": ["tg:YOUR_TELEGRAM_USER_ID"],
+      "streaming": "partial"
+    }
+  },
+  "commands": {
+    "ownerAllowFrom": ["telegram:YOUR_TELEGRAM_USER_ID"]
+  },
+  "agents": {
+    "entries": {
+      "main": {
+        "name": "Main",
+        "identity": { "emoji": "\ud83c\udf19" },
+        "tools": { "elevated": { "allowFrom": { "telegram": ["tg:YOUR_TELEGRAM_USER_ID"] } } }
+      }
+    },
+    "defaults": {
+      "model": { "primary": "YOUR_PRIMARY_MODEL_HERE" },
+      "fallbacks": [],
+      "compaction": { "mode": "safeguard", "timeoutSeconds": 120 },
+      "streaming": { "mode": "partial" },
+      "timeoutSeconds": 40
+    }
+  },
+  "models": {
+    "providers": {
+      "YOUR_PROVIDER_ID": {
+        "api": "openai-completions",
+        "baseUrl": "YOUR_API_BASE_URL",
+        "apiKey": "***",
+        "models": [
+          { "id": "YOUR_MODEL_ID", "reasoning": false }
+        ]
+      }
+    }
+  }
+}
