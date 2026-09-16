@@ -1,0 +1,45 @@
+# OpenClaw Gateway Docker Compose - production template
+# MUST CHANGE: runtime.env secrets, mihomo proxy nodes
+# OPTIONAL: image versions, resource limits
+
+services:
+  gateway:
+    image: ghcr.io/openclaw/openclaw:2026.9.4
+    container_name: openclaw-gateway
+    restart: unless-stopped
+    network_mode: host
+    group_add:
+      - "996"  # docker socket group. DO NOT use user:root
+    volumes:
+      - /data/state:/home/node/.openclaw
+      - /data/state/workspace:/home/node/.openclaw/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+    env_file:
+      - /data/etc/openclaw/runtime.env
+    healthcheck:
+      test: ["CMD", "openclaw", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    pids: -1  # CRITICAL: prevents zombie accumulation
+
+  mihomo-tun:
+    image: metacubex/mihomo:latest
+    container_name: mihomo-tun
+    restart: unless-stopped
+    network_mode: service:gateway  # shares gateway netns
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    volumes:
+      - /usr/local/etc/mihomo:/etc/mihomo
+
+  recovery-watchdog:
+    image: ghcr.io/openclaw/openclaw:2026.9.4
+    container_name: openclaw-recovery-watchdog
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    entrypoint: ["/bin/sh", "-c", "while true; do openclaw health || docker restart openclaw-gateway; sleep 15; done"]
