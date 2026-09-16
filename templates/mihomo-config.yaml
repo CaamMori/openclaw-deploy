@@ -1,0 +1,52 @@
+# mihomo TUN proxy - production skeleton
+# MUST CHANGE: proxy nodes, domain rules for your API providers
+# WARNING: API domains MUST have rules BEFORE GEOIP/CN (see gotchas.md #4)
+
+mixed-port: 7890
+allow-lan: false
+mode: rule
+log-level: info
+external-controller: 127.0.0.1:9090
+secret: ""
+
+tun:
+  enable: true
+  stack: system
+  auto-route: true
+  auto-detect-interface: true
+
+dns:
+  enable: true
+  listen: 0.0.0.0:53
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  respect-rules: true
+  default-nameserver:
+    - 1.1.1.1
+  nameserver:
+    - https://1.1.1.1/dns-query
+  fake-ip-filter:
+    - "+.localhost"
+    - "+.local"
+
+proxies:
+  - name: "PROXY_NODE_1"
+    type: vless
+    server: 192.0.2.1
+    port: 443
+    uuid: YOUR_UUID_HERE
+    tls: true
+
+proxy-groups:
+  - name: "main-proxy"
+    type: select
+    proxies:
+      - "PROXY_NODE_1"
+      - "DIRECT"
+
+rules:
+  - DOMAIN-SUFFIX,api.telegram.org,main-proxy
+  - DOMAIN-SUFFIX,t.me,main-proxy
+  - DOMAIN-SUFFIX,openai.com,main-proxy
+  - GEOIP,CN,DIRECT
+  - MATCH,main-proxy
