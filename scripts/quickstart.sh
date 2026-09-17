@@ -15,7 +15,7 @@ if ! command -v docker &>/dev/null; then error "Docker not found. https://docs.d
 info "Docker: $(docker --version | head -1)"
 if ! docker compose version &>/dev/null; then error "Docker Compose v2 not found."; exit 1; fi
 info "Compose: $(docker compose version --short)"
-if ! command -v node &>/dev/null; then warn "Node.js not found. Installing..."; curl -fsSL https://deb.nodesource.com/setup_20.x | bash -; apt-get install -y nodejs; fi
+if ! command -v node &>/dev/null; then warn "Node.js not found. Installing via official binary..."; ARCH=$(uname -m); [ "$ARCH" = "x86_64" ] && ARCH="x64"; [ "$ARCH" = "aarch64" ] && ARCH="arm64"; NODE_VER="v20.18.1"; curl -fsSL "https://nodejs.org/dist/$NODE_VER/node-$NODE_VER-linux-$ARCH.tar.xz" | tar xJ -C /usr/local --strip-components=1; info "Node: $(node --version)"; fi
 info "Node: $(node --version)"
 
 step "Checking OpenClaw CLI..."
