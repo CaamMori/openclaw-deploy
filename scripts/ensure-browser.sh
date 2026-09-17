@@ -19,7 +19,7 @@ LOG="/var/log/ensure-browser.log"
 CHROMIUM_PATH="/usr/lib/chromium/chromium"
 
 log() {
-    echo "$(date '+%%Y-%%m-%%d %%H:%%M:%S') $*" >> "$LOG"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "$LOG"
 }
 
 # Check if chromium exists
