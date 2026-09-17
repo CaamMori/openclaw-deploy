@@ -17,6 +17,7 @@ STATE="/data/state"
 echo "[entrypoint] Cleaning stale locks..."
 
 # Remove zero-byte lock files older than 30 minutes
+# Only deletes 0-byte files (active locks have data)
 if [ -d "$WS" ]; then
     find "$WS" -maxdepth 2 \( -name "*lock.sqlite" -o -name "*.lock" \) -size 0 -mmin +30 -print -delete 2>/dev/null || true
 fi
