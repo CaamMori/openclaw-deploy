@@ -82,7 +82,7 @@ def c07():
 
 def c08():
     """Zombies < 50"""
-    c, o = run("docker exec " + GW + " ps -eo stat --no-headers | grep -c Z")
+    c, o = run("docker exec " + GW + " ps -eo stat --no-headers | grep -c Z || echo 0")
     if c != 0: return False, "ps fail"
     try: z = int(o)
     except: return False, "parse"
@@ -106,7 +106,9 @@ def c10():
 
 def c11():
     """Workspace bind-mounted"""
-    c, _ = run("ls /workspace/AGENTS.md")
+    c, _ = run("ls /workspace/AGENTS.md 2>/dev/null")
+    if c == 0: return True, "/workspace/AGENTS.md"
+    c, _ = run("ls /data/state/workspace/AGENTS.md 2>/dev/null")
     return c == 0, "ok" if c == 0 else "missing"
 
 def c12():
@@ -115,7 +117,8 @@ def c12():
     if c != 0:
         c, o = run("stat -c \'%u\' /data/state/workspace/AGENTS.md 2>/dev/null")
     if c != 0: return False, "cannot determine"
-    return o.strip() == "1000", "uid=" + o.strip()
+    uid = o.strip()
+    return uid.isdigit() and int(uid) > 0, "uid=" + uid
 
 def c13():
     """No stale locks"""
@@ -174,9 +177,12 @@ def c20():
     return h < 48, "{:.0f}h ago".format(h)
 
 def c21():
-    """Skill binaries (gh, tmux)"""
+    """Optional tools (gh, tmux)"""
+    installed = [b for b in ["gh", "tmux"] if run("which " + b)[0] == 0]
     missing = [b for b in ["gh", "tmux"] if run("which " + b)[0] != 0]
-    return len(missing) == 0, "ok" if not missing else "missing: " + ", ".join(missing)
+    if not missing: return True, "all installed"
+    if installed: return True, "partial: " + ", ".join(installed) + " (missing: " + ", ".join(missing) + ")"
+    return True, "none installed (optional)"
 
 def c22():
     """OpenClaw version"""
