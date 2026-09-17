@@ -119,3 +119,46 @@
 15. 说明物理限制
 16. 位置 ≠ 可用性
 17. 过期记忆用当前源更新
+
+---
+
+## 11. DNS self-loop (TUN mode)
+
+- mihomo DNS query -> hits own proxy rules -> DoH outbound -> needs DNS -> deadlock
+- Fix: /etc/hosts static bindings + compose extra_hosts
+- Rule: check fake-ip-filter before touching SSRF config
+
+---
+
+## 12. Compaction deadlock (99% capacity permanent block)
+
+- Session at ~99% -> all messages permanently blocked
+- Default reuses main model (too slow)
+- Timeout: 180s default (EMBED_COMPACTION_TIMEOUT_MS = 18e4)
+- Fix: use large contextWindow model for compaction, drop from 20 to 1 compaction
+
+---
+
+## 13. Sandbox uid mismatch = silent write failure
+
+- Container uid 1000(node), file owner root -> kernel denies
+- `ls -l` shows 755 looks normal, but uid 1000 only gets r-x
+- Fix: chown -R 1000:1000 /data/state/workspace
+- Never use user: root to bypass
+
+---
+
+## 14. Sandbox browser bypasses TUN
+
+- Browser sandbox on isolated network 192.168.32.0/20
+- Default goes through host bridge, not mihomo TUN
+- OpenClaw chrome.ts hardcodes --no-proxy-server when no proxy configured
+- Fix: inject --proxy-server in image, don't touch SSRF config
+
+---
+
+## 15. Config hot reload != immediate effect
+
+- After changing openclaw.json, wait for "config hot reload applied" log
+- mihomo PATCH 204 != config applied, must GET to confirm
+- Rule: exit 0 != config correct, just means process didn't crash
