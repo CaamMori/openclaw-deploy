@@ -16,7 +16,7 @@ LOG="/var/log/mihomo-guard.log"
 MAX_LOG=5120  # KB
 
 log() {
-    echo "$(date '+%%Y-%%m-%%d %%H:%%M:%%S') $*" >> "$LOG"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "$LOG"
 }
 
 rotate_log() {
@@ -42,7 +42,7 @@ if [ -z "$ACTIVE" ]; then
 fi
 
 # Test connectivity through proxy (use a fast endpoint)
-HTTP_CODE=$(docker exec "$MIHOMO" curl -s -o /dev/null -w '%%{http_code}'     --max-time 10 --proxy http://127.0.0.1:7890     http://cp.cloudflare.com/generate_204 2>/dev/null || echo "000")
+HTTP_CODE=$(docker exec "$MIHOMO" curl -s -o /dev/null -w '%{http_code}'     --max-time 10 --proxy http://127.0.0.1:7890     http://cp.cloudflare.com/generate_204 2>/dev/null || echo "000")
 
 if [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then
     # All good, just log and rotate
@@ -72,7 +72,7 @@ for NODE in $PROXIES; do
     docker exec "$MIHOMO" curl -s -X PUT http://127.0.0.1:9090/proxies/$GROUP         -H 'Content-Type: application/json'         -d "{"name":"$NODE"}" >/dev/null 2>&1
 
     sleep 2
-    NEW_CODE=$(docker exec "$MIHOMO" curl -s -o /dev/null -w '%%{http_code}'         --max-time 10 --proxy http://127.0.0.1:7890         http://cp.cloudflare.com/generate_204 2>/dev/null || echo "000")
+    NEW_CODE=$(docker exec "$MIHOMO" curl -s -o /dev/null -w '%{http_code}'         --max-time 10 --proxy http://127.0.0.1:7890         http://cp.cloudflare.com/generate_204 2>/dev/null || echo "000")
 
     if [ "$NEW_CODE" = "204" ] || [ "$NEW_CODE" = "200" ]; then
         log "OK: Switched to $NODE (HTTP $NEW_CODE)"
