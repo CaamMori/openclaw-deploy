@@ -77,3 +77,57 @@ See docs/gotchas.md for detailed explanations:
 - Section 6: DNS self-loop
 - Section 7: Performance and caching
 - Section 8: Security and credentials
+
+### Browser sandbox can't reach overseas sites
+
+Root cause: browser sandbox on isolated network, bypasses mihomo TUN.
+
+Check:
+```bash
+docker exec openclaw-sbx-browser-* curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://example.com
+```
+
+Fix: inject --proxy-server in sandbox image. See architecture.md.
+
+### CDP relay timeout
+
+Symptom: "Can't reach the OpenClaw browser control service (timed out after 25000ms)"
+
+```bash
+systemctl status openclaw-cdp-relay
+systemctl enable --now openclaw-cdp-relay
+```
+
+### DNS self-loop (TUN mode)
+
+Symptom: getaddrinfo ENOTFOUND or SERVFAIL for API domains
+
+Root cause: mihomo DNS query hits own proxy rules -> deadlock
+
+Fix:
+```yaml
+# docker-compose.gateway.yml
+extra_hosts:
+  - "api.telegram.org:149.154.166.110"
+```
+
+### Gateway crash loop
+
+Symptom: gateway restarts repeatedly
+
+```bash
+docker logs openclaw-gateway --tail 30
+```
+
+Common: invalid config keys (remove to self-heal), entrypoint can't find openclaw.
+
+### Sandbox restart policy drift
+
+Symptom: sandbox doesn't auto-restart after reboot
+
+```bash
+docker inspect <sandbox> --format '{{.HostConfig.RestartPolicy.Name}}'
+docker update --restart unless-stopped <sandbox>
+```
+
+Automated by pin-sbx-restart.sh (cron */2).
