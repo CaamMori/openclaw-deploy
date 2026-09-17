@@ -1,81 +1,121 @@
 # Gotchas - OpenClaw Production Deployment
 
-> Every entry from a real incident or real reproduction.
+> Every entry from a real incident or real reproduction, not speculation.
+> 经验法则不是教条——你的环境可能不同。
 
-## 0. Silence is Not Confirmation
-- No error != success
-- Valid proof = observable evidence: "Memory index updated", "config hot reload applied", "outbound send ok"
+---
 
-## 1. AGENTS.md Information Architecture
-- Hard cap ~20K chars, truncates from tail (loses ops core rules)
-- Index, don't delete: AGENTS.md = identity + invariants + doc index
-- After migration: re-read line by line. Title exists != content exists
-- HEARTBEAT.md / TOOLS.md are RETIRED in official docs
+## 0. 最高原则：沉默 ≠ 确认
 
-## 2. Identity and Injection
-- Two failures: can it read? does content exist?
-- Identity in guaranteed injection layer (AGENTS.md header)
-- Permission grant != identity visibility
+- 没有报错不代表成功；`doctor` 没报 WARNING 不代表正常
+- 有效证明 = **一行可观察证据**：`Memory index updated`、`config hot reload applied`、`outbound send ok`
+- 把「我觉得好了」替换为可粘贴的证据行
+- `exit 0` ≠ 配置正确，只代表进程没崩溃
 
-## 3. No Reply Two-Segment Check
-- Model 200 + no "outbound send ok" = delivery broke
-- Don't probe api.telegram.org (false positives); use gstatic/generate_204
-- PATCH 204 != config reloaded; check GET /proxies
-- Dead node takes 5min to switch (interval=300)
+---
 
-## 4. Response Speed
-1. Duplicate rules = first wins (traffic to dead node)
-2. DNS SERVFAIL: send DNS query, check rcode
-3. idle watchdog 120s
+## 1. AGENTS.md 信息架构
 
-## 5. TTFT Unstable
-- 13% jump to 17-30s (worst 133.9s)
-- Cross-border 10% failure rate - physical
-- Mitigate: streaming partial, timeoutSeconds 40
+- **单文件注入有硬上限**（~20K chars，从尾部截断）——被截的往往是运维核心规则
+- **正确做法 = 索引，不是删除**：AGENTS.md = 身份 + 铁律 + 文档索引；细节下沉到 runbooks
+- **迁移后逐行回读**：「标题存在」≠「内容存在」
+- **查过期**：HEARTBEAT.md / TOOLS.md 在官方文档已 RETIRED，别补丁过期协议
 
-## 6. DNS Self-Loop Deadlock
-- mihomo DNS matches own proxy rules -> deadlock
-- Fix: static /etc/hosts + extra_hosts
-- API domains BEFORE GEOIP/CN
+---
 
-## 7. Cache and Performance
-- Warmup 22% -> 96%
-- Cliff at 33K tokens
-- Compaction deadlock at 99%
-- Compaction model separate, lightweight
+## 2. 身份与注入
 
-### 7.1 Compaction Deadlock
-- Session 99% -> all messages blocked
-- Default reuses session model (too slow)
-- Use large contextWindow models
+- 「Agent 认不出用户」= 两层独立故障：能不能读到文件？文件里有没有内容？
+- 身份信息必须放在**保证注入层**（AGENTS.md 头部），「读文件 X」不可靠
+- 权限授予 ≠ 身份可见，两个问题
 
-## 8. Security
-- chmod 600 openclaw.json
-- ${ENV} != audit-clean
-- Hot-reload, not kill -HUP
-- uid 1000:1000 match
-- No root gateway
+---
 
-## 9. Refactoring
-- cp -a first
-- base64+md5 for relay
-- Ask before destructive
+## 3. 无回复两段式排查法
 
-## 10. Rules (17)
-1. Layer-test latency
-2. Two-segment check
-3. rcode not getent
-4. Characteristic values
-5. Self-validate tests
-6. Trends not snapshots
-7. Silence != confirmation
-8. Fix A exposes B
-9. Check specs
-10. Re-read output
-11. cp -a
-12. base64+md5
-13. Stale lock 0-byte
-14. Restart -> orphan netns
-15. State limitations
-16. Location != availability
-17. Update stale memory
+- Model status=200 但无 `outbound send ok` = **投递段**断了（查 egress/proxy）
+- 只探测 api.telegram.org 有假阳性，应改用 gstatic.com/generate_204
+- mihomo PATCH 返回 204 ≠ 配置已生效，必须 GET /proxies/<group> 确认 active
+- **放大器**：interval=300 意味着死节点要 5 分钟才切换
+
+---
+
+## 4. 响应速度三大原因
+
+1. **重复规则 = 隐形杀手**：mihomo 按顺序匹配，第一条命中即停；后面写了更优节点也没用
+2. **DNS SERVFAIL**：`getent hosts` 返回空 ≠ 没有 DNS——发一次 DNS 查询，查 rcode
+3. **idle watchdog 120s**：云厂商安全组/ALB 空闲超时
+
+---
+
+## 5. TTFT 不是慢，是不稳定
+
+- 中位 ~1.5s，但 ~13% 跳到 17-30s（最差 133.9s）
+- 跨境链路 ~10% 失败率——物理限制，不接受「修复」
+- **应对**：streaming partial，timeoutSeconds 设 40
+
+---
+
+## 6. DNS 自环死锁（TUN 模式经典坑）
+
+- mihomo DNS 查询命中自身 proxy 规则 → 死锁
+- **解法**：/etc/hosts 静态绑定 + compose extra_hosts
+- API 域名必须在 GEOIP/CN 规则之前
+
+---
+
+## 7. 缓存与性能
+
+- 预热：22% → 96%（5 次请求后）
+- 上下文悬崖：8 tokens 1.7s，33K → TLS 超时
+- compaction 死锁：99% 容量时所有消息被阻塞
+- **compaction model 必须单独配置**，轻量模型
+
+### 7.1 compaction 死锁（永久阻塞）
+
+- Session 达到 ~99% → **所有消息永久阻塞**
+- 默认复用主模型（太慢）
+- 超时：默认 180s（源码常量 EMBED_COMPACTION_TIMEOUT_MS = 18e4）
+- **决策**：用 contextWindow 大的模型（从 20 次 compact 降到 1 次）
+
+---
+
+## 8. 安全与凭据
+
+- openclaw.json → chmod 600
+- `${ENV}` ≠ 审计去密，只缩小磁盘暴露
+- 配置热加载 → 等「config hot reload applied」，永远不要 kill -s HUP
+- **sandbox uid 必须匹配 workspace owner**（1000:1000）
+- Gateway 不能 root 运行（uid 不匹配 sandbox）
+- uid 不匹配：read 可写，write 失败
+
+---
+
+## 9. refactoring 教训
+
+- 「workspace」：先确认是 sandbox 路径还是 server 路径
+- cp -a 再覆盖
+- Remote relay → base64 + md5 两端校验
+- 破坏范围不确定 → 先问
+
+---
+
+## 10. 方法论（17 条铁律）
+
+1. 延迟要分层测（host / container / chain）
+2. 无回复两段式排查（model / delivery）
+3. DNS 用 rcode 不用 getent
+4. 特征值定层
+5. 测试先验证测试本身
+6. 看趋势不看快照
+7. 沉默 ≠ 确认
+8. 修 A 暴露 B
+9. 补丁前查规范
+10. 迁移后重新读输出
+11. cp -a 再覆盖
+12. relay 用 base64+md5
+13. 僵尸锁：0 字节 + 无进程
+14. 重启残留孤儿 netns
+15. 说明物理限制
+16. 位置 ≠ 可用性
+17. 过期记忆用当前源更新
