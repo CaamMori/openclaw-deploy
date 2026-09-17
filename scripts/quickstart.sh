@@ -1,114 +1,84 @@
 #!/usr/bin/env bash
-# ============================================================
-# OpenClaw Production Deployment - Quickstart
-# ============================================================
-# Usage:
-#   curl -sL https://raw.githubusercontent.com/CaamMori/openclaw-deploy/main/scripts/quickstart.sh | bash
-#   OR: git clone https://github.com/CaamMori/openclaw-deploy.git && cd openclaw-deploy && bash scripts/quickstart.sh
-#
-# This script:
-#   1. Creates /data directory structure
-#   2. Copies templates with YOUR_ placeholders
-#   3. Generates a secure gateway token
-#   4. Prints next steps
-# ============================================================
-
+# OpenClaw One-Click Deployment
 set -euo pipefail
-
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
 info()  { echo -e "${GREEN}[+]${NC} $*"; }
 warn()  { echo -e "${YELLOW}[!]${NC} $*"; }
 error() { echo -e "${RED}[X]${NC} $*" >&2; }
-
-# Check prerequisites
-if ! command -v docker &>/dev/null; then
-    error "Docker not found. Install: https://docs.docker.com/engine/install/"
-    exit 1
-fi
-
-if ! docker compose version &>/dev/null; then
-    error "Docker Compose v2 not found. Update Docker to latest."
-    exit 1
-fi
-
-# Create directory structure
-info "Creating /data directory structure..."
-mkdir -p /data/{state/workspace,scripts,etc/openclaw,opt,backups}
-
-# Copy templates
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+step()  { echo -e "\n${CYAN}${BOLD}==> $*${NC}"; }
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMPLATE_DIR="$SCRIPT_DIR/../templates"
+ENV_FILE="${1:-}"
 
-if [ -d "$TEMPLATE_DIR" ]; then
-    info "Copying templates..."
-    cp "$TEMPLATE_DIR/docker-compose.gateway.yml" /data/scripts/
-    cp "$TEMPLATE_DIR/openclaw.json" /data/state/
-    cp "$TEMPLATE_DIR/mihomo-config.yaml" /data/etc/mihomo/config.yaml 2>/dev/null || true
-    chmod 600 /data/state/openclaw.json
-else
-    warn "Templates directory not found. Using defaults."
-fi
+step "Checking prerequisites..."
+if ! command -v docker &>/dev/null; then error "Docker not found. https://docs.docker.com/engine/install/"; exit 1; fi
+info "Docker: $(docker --version | head -1)"
+if ! docker compose version &>/dev/null; then error "Docker Compose v2 not found."; exit 1; fi
+info "Compose: $(docker compose version --short)"
+if ! command -v node &>/dev/null; then warn "Node.js not found. Installing..."; curl -fsSL https://deb.nodesource.com/setup_20.x | bash -; apt-get install -y nodejs; fi
+info "Node: $(node --version)"
 
-# Generate gateway token
-TOKEN=$(openssl rand -hex 32 2>/dev/null || head -c 64 /dev/urandom | od -An -tx1 | tr -d ' \n' | head -c 64)
-info "Generated gateway token: ${TOKEN:0:8}..."
+step "Checking OpenClaw CLI..."
+if command -v openclaw &>/dev/null; then info "Already installed: $(openclaw --version 2>/dev/null || echo unknown)"; else info "Installing..."; npm install -g openclaw; info "Installed: $(openclaw --version 2>/dev/null || echo done)"; fi
 
-# Create runtime.env from template
-ENV_FILE="/data/etc/openclaw/runtime.env"
-if [ ! -f "$ENV_FILE" ]; then
-    cat > "$ENV_FILE" <<ENVEOF
-# OpenClaw Runtime Environment
-# chmod 600 this file after editing.
+step "Creating /data structure..."
+mkdir -p /data/{state/workspace,scripts,etc/openclaw,etc/mihomo,opt,backups}
+info "Done"
 
-OPENCLAW_GATEWAY_TOKEN=$TOKEN
-ZAI_API_KEY=YOUR_ZAI_API_KEY_HERE
-OPENAI_API_KEY=YOUR_OPENAI_API_KEY_HERE
-TELEGRAM_BOT_TOKEN=YOUR_TELEGRAM_BOT_TOKEN_HERE
-TELEGRAM_OWNER_ID=YOUR_TELEGRAM_USER_ID_HERE
-TZ=Asia/Shanghai
+step "Copying templates..."
+[ -f "$TEMPLATE_DIR/docker-compose.gateway.yml" ] && cp "$TEMPLATE_DIR/docker-compose.gateway.yml" /data/scripts/ && info "docker-compose"
+[ -f "$TEMPLATE_DIR/openclaw.json" ] && cp "$TEMPLATE_DIR/openclaw.json" /data/state/ && chmod 600 /data/state/openclaw.json && info "openclaw.json"
+[ -f "$TEMPLATE_DIR/mihomo-config.yaml" ] && cp "$TEMPLATE_DIR/mihomo-config.yaml" /data/etc/mihomo/config.yaml && info "mihomo-config"
+
+step "Configuring environment..."
+ENV_TARGET="/data/etc/openclaw/runtime.env"
+[ -f "$ENV_TARGET" ] && cp "$ENV_TARGET" "${ENV_TARGET}.bak.$(date +%s)" && warn "Backed up existing"
+if [ -n "$ENV_FILE" ] && [ -f "$ENV_FILE" ]; then cp "$ENV_FILE" "$ENV_TARGET"; info "Copied from $ENV_FILE"; else
+echo ""; echo -e "${BOLD}Enter your keys (Enter to skip optional):${NC}"; echo ""
+read -rp "  Gateway token (Enter to auto-generate): " INPUT_TOKEN
+[ -z "$INPUT_TOKEN" ] && INPUT_TOKEN=$(openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')
+info "Token: ${INPUT_TOKEN:0:8}..."
+read -rp "  ZAI API key: " INPUT_ZAI
+read -rp "  OpenAI API key (optional): " INPUT_OPENAI
+read -rp "  Telegram bot token: " INPUT_TG_TOKEN
+read -rp "  Telegram user ID (@userinfobot): " INPUT_TG_ID
+read -rp "  GitHub token (optional): " INPUT_GH
+read -rp "  Timezone [Asia/Shanghai]: " INPUT_TZ
+INPUT_TZ="${INPUT_TZ:-Asia/Shanghai}"
+cat > "$ENV_TARGET" <<ENVEOF
+OPENCLAW_GATEWAY_TOKEN=$INPUT_TOKEN
+ZAI_API_KEY=$INPUT_ZAI
+OPENAI_API_KEY=$INPUT_OPENAI
+TELEGRAM_BOT_TOKEN=$INPUT_TG_TOKEN
+TELEGRAM_OWNER_ID=$INPUT_TG_ID
+GH_TOKEN=$INPUT_GH
+TZ=$INPUT_TZ
 ENVEOF
-    chmod 600 "$ENV_FILE"
-    info "Created $ENV_FILE"
-else
-    warn "$ENV_FILE already exists, skipping."
-fi
+info "runtime.env created"; fi
+chmod 600 "$ENV_TARGET"
 
-# Validate docker-compose
-if [ -f /data/scripts/docker-compose.gateway.yml ]; then
-    if cd /data/scripts && docker compose -f docker-compose.gateway.yml config --quiet 2>/dev/null; then
-        info "docker-compose.yml syntax OK"
-    else
-        warn "docker-compose.yml has syntax errors or missing values. Edit and retry."
-    fi
-    cd - >/dev/null
-fi
+step "Customizing docker-compose..."
+DC="/data/scripts/docker-compose.gateway.yml"
+if [ -f "$DC" ]; then GID=$(stat -c '%g' /var/run/docker.sock 2>/dev/null || echo "999"); sed -i "s/YOUR_DOCKER_GROUP_ID/$GID/g" "$DC"; info "Docker GID: $GID"
+VER=$(openclaw --version 2>/dev/null | grep -oP '[\d.]+' | head -1 || echo "latest"); sed -i "s/YOUR_OPENCLAW_VERSION_HERE/$VER/g" "$DC"; info "OpenClaw: $VER"
+sed -i "s/YOUR_MIHOMO_VERSION_HERE/latest/g" "$DC"; info "mihomo: latest"; fi
 
-echo ""
-echo "============================================"
-echo "  Quickstart Complete!"
-echo "============================================"
-echo ""
-echo "Next steps:"
-echo "  1. Edit /data/etc/openclaw/runtime.env"
-echo "     - Fill in YOUR_ placeholders (API keys, bot token, user ID)"
-echo ""
-echo "  2. Edit /data/scripts/docker-compose.gateway.yml"
-echo "     - Change YOUR_DOCKER_GROUP_ID"
-echo "       Run: stat -c '%g' /var/run/docker.sock"
-echo "     - Change YOUR_OPENCLAW_VERSION_HERE"
-echo ""
-echo "  3. Start services:"
-echo "     cd /data/scripts && docker compose -f docker-compose.gateway.yml up -d"
-echo ""
-echo "  4. Verify:"
-echo "     openclaw health"
-echo "     openclaw doctor"
-echo ""
-echo "  5. Run self-check:"
-echo "     python3 $SCRIPT_DIR/selfcheck.py --full"
-echo ""
-info "Done. Edit the YOUR_ placeholders and start!"
+step "Installing scripts..."
+for s in selfcheck.py mihomo-guard.sh ensure-browser.sh entrypoint.sh; do [ -f "$SCRIPT_DIR/$s" ] && cp "$SCRIPT_DIR/$s" /usr/local/bin/ && chmod +x /usr/local/bin/$s && info "$s"; done
+
+step "Initializing OpenClaw..."
+openclaw init 2>/dev/null || info "Already initialized"
+
+step "Starting services..."
+cd /data/scripts; docker compose -f docker-compose.gateway.yml up -d; info "Compose up done"
+
+step "Waiting for Gateway health (max 60s)..."
+for i in $(seq 1 20); do if openclaw health &>/dev/null; then info "Healthy after $((i*3))s"; break; fi; sleep 3; echo -n "."; done; echo ""
+if ! openclaw health &>/dev/null; then warn "Gateway not healthy yet. Check: docker logs openclaw-gateway --tail 30"; fi
+
+step "Running 22-item self-check..."
+python3 /usr/local/bin/selfcheck.py --full 2>/dev/null || warn "selfcheck skipped"
+
+echo ""; echo -e "${GREEN}${BOLD}============================================${NC}"; echo -e "${GREEN}${BOLD}  Deployment Complete!${NC}"; echo -e "${GREEN}${BOLD}============================================${NC}"; echo ""
+docker ps --format '  {{.Names}} ({{.Status}})' 2>/dev/null | grep -E 'openclaw|mihomo' || true
+echo ""; echo "  Quick commands:"; echo "    openclaw health"; echo "    openclaw doctor"; echo "    python3 /usr/local/bin/selfcheck.py --full"; echo ""
