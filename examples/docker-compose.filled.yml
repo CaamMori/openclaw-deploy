@@ -1,0 +1,44 @@
+# Example: Filled docker-compose for production
+# Copy to /data/scripts/docker-compose.gateway.yml and adjust
+
+services:
+  gateway:
+    image: ghcr.io/openclaw/openclaw:2026.9.4
+    container_name: openclaw-gateway
+    restart: unless-stopped
+    network_mode: host
+    group_add:
+      - "996"  # stat -c '%g' /var/run/docker.sock
+    volumes:
+      - /data/state:/home/node/.openclaw
+      - /data/state/workspace:/home/node/.openclaw/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+    env_file:
+      - /data/etc/openclaw/runtime.env
+    healthcheck:
+      test: ["CMD", "openclaw", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    pids: -1
+
+  mihomo-tun:
+    image: metacubex/mihomo:latest
+    container_name: mihomo-tun
+    restart: unless-stopped
+    network_mode: service:gateway
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    volumes:
+      - /data/etc/mihomo:/etc/mihomo
+
+  recovery-watchdog:
+    image: ghcr.io/openclaw/openclaw:2026.9.4
+    container_name: openclaw-recovery-watchdog
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    entrypoint: ["/bin/sh", "-c", "while true; do if ! openclaw health 2>/dev/null; then echo \"[$(date)] Gateway unhealthy, restarting\" >> /var/log/watchdog.log; docker restart openclaw-gateway; sleep 30; else sleep 15; fi; done"]
