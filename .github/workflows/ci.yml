@@ -1,0 +1,20 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shell syntax check
+        run: for f in scripts/*.sh; do echo "Checking $f..."; bash -n "$f"; done
+      - name: Python syntax check
+        run: python3 -m py_compile scripts/selfcheck.py
+      - name: JSON validation
+        run: python3 -c "import json; json.load(open('templates/openclaw.json'))"
+      - name: No secrets
+        run: |
+          ! grep -rn 'ghp_\|sk-[a-zA-Z0-9]' scripts/ templates/ docs/ --include='*.sh' --include='*.py' --include='*.json' --include='*.yaml' --include='*.yml' | grep -v YOUR_ | grep -v placeholder
