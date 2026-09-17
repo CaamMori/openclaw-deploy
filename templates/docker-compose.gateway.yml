@@ -10,6 +10,11 @@ services:
     network_mode: host
     group_add:
       - "YOUR_DOCKER_GROUP_ID"  # find: stat -c '%g' /var/run/docker.sock
+    extra_hosts:
+      # DNS self-loop prevention: static IPs for domains that break in TUN mode
+      # Find real IPs: dig +short <domain> from a machine WITHOUT mihomo TUN
+      - "api.telegram.org:149.154.166.110"
+      # - "your-api-endpoint:YOUR_API_IP"
     volumes:
       - /data/state:/home/node/.openclaw
       - /data/state/workspace:/home/node/.openclaw/workspace
