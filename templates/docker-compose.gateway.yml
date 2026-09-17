@@ -33,7 +33,7 @@ services:
     devices:
       - /dev/net/tun:/dev/net/tun
     volumes:
-      - /usr/local/etc/mihomo:/etc/mihomo
+      - /data/etc/mihomo:/etc/mihomo
 
   recovery-watchdog:
     image: ghcr.io/openclaw/openclaw:YOUR_OPENCLAW_VERSION_HERE
@@ -42,4 +42,4 @@ services:
     network_mode: host
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    entrypoint: ["/bin/sh", "-c", "while true; do openclaw health || docker restart openclaw-gateway; sleep 15; done"]
+    entrypoint: ["/bin/sh", "-c", "while true; do if ! openclaw health 2>/dev/null; then echo "[Thu Sep 17 13:47:22 CST 2026] Gateway unhealthy, restarting" >> /var/log/watchdog.log; docker restart openclaw-gateway; sleep 30; else sleep 15; fi; done"]
