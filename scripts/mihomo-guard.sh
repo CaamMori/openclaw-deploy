@@ -11,7 +11,7 @@
 set -euo pipefail
 
 MIHOMO="mihomo-tun"
-GROUP="proxy"  # your proxy group name in mihomo config
+GROUP="${MIHOMO_PROXY_GROUP:-proxy}"  # set MIHOMO_PROXY_GROUP env var or edit here
 LOG="/var/log/mihomo-guard.log"
 MAX_LOG=5120  # KB
 
