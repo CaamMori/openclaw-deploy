@@ -14,6 +14,17 @@
 
 ---
 
+## 16. Compose entrypoint 变量插值陷阱
+
+- Docker Compose 对 entrypoint / command / env 里的 `$VAR` 做**独立预处理插值**，不认 YAML 块标量
+- 裸 `$S` 被当成 Compose 环境变量、因宿主机无该变量而替换为空串
+- **必须用 `$$S`**（`$$` 在 Compose 中转义为字面 `$`，渲染后保留给容器内 shell）
+- 反例：`if [ "$S" != "healthy" ]` → 实际变成 `if [ "" != "healthy" ]`（恒真 → watchdog 误重启）
+- `$(date)` 等命令替换不受影响（Compose 不处理 `$(...)` 语法）
+- 验证：`docker compose config` 渲染后 grep 应含 `$S`，否则已被吃空
+
+---
+
 ## 1. AGENTS.md 信息架构
 
 - **单文件注入有硬上限**（~20K chars，从尾部截断）——被截的往往是运维核心规则

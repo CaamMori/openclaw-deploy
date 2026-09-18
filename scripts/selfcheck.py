@@ -5,6 +5,8 @@ Usage:
   python3 selfcheck.py              # quick (failures only)
   python3 selfcheck.py --full       # show all
   python3 selfcheck.py --json       # JSON for automation
+  python3 selfcheck.py --quick      # fast subset (no docker exec)
+  python3 selfcheck.py --write-state  # write selfcheck-state.json for panel
 
 Exit: 0 = all pass, 1 = fail
 """
@@ -203,16 +205,31 @@ ALL = [
     ("skill_bins", c21), ("version", c22),
 ]
 
+STATE_PATH = Path("/var/lib/openclaw/selfcheck-state.json")
+
 def main():
     full = "--full" in sys.argv
+    quick = "--quick" in sys.argv
     as_json = "--json" in sys.argv
+    write_state = "--write-state" in sys.argv
+    # Quick subset: checks that are fast (no docker exec, no network)
+    QUICK_NAMES = {"disk", "memory", "config_valid", "config_perms",
+                   "workspace_bind", "workspace_uid", "runtime_env", "backup", "version"}
     results = []
     for name, fn in ALL:
+        if quick and name not in QUICK_NAMES:
+            continue
         try: ok, detail = fn()
         except Exception as e: ok, detail = False, str(e)
         results.append({"name": name, "ok": ok, "detail": detail})
     passed = sum(1 for r in results if r["ok"])
     failed = len(results) - passed
+    if write_state:
+        STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(STATE_PATH, "w") as f:
+            json.dump({"timestamp": int(time.time()), "passed": passed,
+                       "failed": failed, "total": len(results),
+                       "results": results}, f)
     if as_json:
         print(json.dumps({"passed": passed, "failed": failed, "total": len(results), "results": results}, indent=2))
     else:
@@ -222,6 +239,8 @@ def main():
                 print("  [%s] %s: %s" % (icon, r["name"], r["detail"]))
         sym = "+" if failed == 0 else "X"
         print("\n%s %d/%d passed" % (sym, passed, len(results)))
+    if write_state:
+        print("State written to %s" % STATE_PATH)
     sys.exit(0 if failed == 0 else 1)
 
 if __name__ == "__main__":
