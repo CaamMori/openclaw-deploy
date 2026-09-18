@@ -47,8 +47,8 @@ services:
       - |
         while true; do
           S=$(docker inspect -f '{{.State.Health.Status}}' openclaw-gateway 2>/dev/null)
-          if [ "$S" != "healthy" ]; then
-            echo "[$(date)] Gateway unhealthy ($S), restarting" >> /var/log/watchdog.log
+          if [ "$$S" != "healthy" ]; then
+            echo "[$(date)] Gateway unhealthy ($$S), restarting" >> /var/log/watchdog.log
             docker restart openclaw-gateway
           fi
           sleep 15
