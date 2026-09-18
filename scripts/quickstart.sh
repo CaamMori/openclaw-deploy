@@ -181,7 +181,7 @@ VER=$(openclaw --version 2>/dev/null | grep -oP '[\d.]+' | head -1 || echo "late
 sed -i "s/YOUR_MIHOMO_VERSION_HERE/latest/g" "$DC"; info "mihomo: latest"; fi
 
 step "Installing scripts..."
-for s in selfcheck.py mihomo-guard.sh ensure-browser.sh entrypoint.sh; do [ -f "$SCRIPT_DIR/$s" ] && cp "$SCRIPT_DIR/$s" /usr/local/bin/ && chmod +x /usr/local/bin/$s && info "$s"; done
+for s in selfcheck.py selfcheck-quick-cron.sh mihomo-guard.sh ensure-browser.sh ensure-telegram-alive.sh nightly-backup.sh pin-sbx-restart.sh entrypoint.sh; do [ -f "$SCRIPT_DIR/$s" ] && cp "$SCRIPT_DIR/$s" /usr/local/bin/ && chmod +x /usr/local/bin/$s && info "$s"; done
 
 step "Initializing OpenClaw..."
 if openclaw init 2>/tmp/oc-init.err; then
@@ -205,3 +205,10 @@ python3 /usr/local/bin/selfcheck.py --full 2>/dev/null || warn "selfcheck skippe
 echo ""; echo -e "${GREEN}${BOLD}============================================${NC}"; echo -e "${GREEN}${BOLD}  Deployment Complete!${NC}"; echo -e "${GREEN}${BOLD}============================================${NC}"; echo ""
 docker ps --format '  {{.Names}} ({{.Status}})' 2>/dev/null | grep -E 'openclaw|mihomo' || true
 echo ""; echo "  Quick commands:"; echo "    openclaw health"; echo "    openclaw doctor"; echo "    openclaw models list"; echo "    python3 /usr/local/bin/selfcheck.py --full"; echo ""
+echo -e "${BOLD}  Recommended cron entries (add to /etc/crontab or crontab -e):${NC}"
+echo "    */10 * * * * root python3 /usr/local/bin/selfcheck.py --full --json >> /var/log/selfcheck.log 2>&1"
+echo "    */5  * * * * root /usr/local/bin/mihomo-guard.sh"
+echo "    */10 * * * * root /usr/local/bin/ensure-browser.sh"
+echo "    */5  * * * * root /usr/local/bin/ensure-telegram-alive.sh"
+echo "    0    4 * * * root /usr/local/bin/nightly-backup.sh"
+echo ""

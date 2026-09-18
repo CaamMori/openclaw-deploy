@@ -20,7 +20,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-    pids: -1
 
   mihomo-tun:
     image: metacubex/mihomo:latest
@@ -35,10 +34,22 @@ services:
       - /data/etc/mihomo:/etc/mihomo
 
   recovery-watchdog:
-    image: ghcr.io/openclaw/openclaw:2026.9.4
+    image: docker:cli
     container_name: openclaw-recovery-watchdog
     restart: unless-stopped
     network_mode: host
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    entrypoint: ["/bin/sh", "-c", "while true; do if ! openclaw health 2>/dev/null; then echo \"[$(date)] Gateway unhealthy, restarting\" >> /var/log/watchdog.log; docker restart openclaw-gateway; sleep 30; else sleep 15; fi; done"]
+      - /var/log/watchdog:/var/log
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        while true; do
+          S=$(docker inspect -f '{{.State.Health.Status}}' openclaw-gateway 2>/dev/null)
+          if [ "$S" != "healthy" ]; then
+            echo "[$(date)] Gateway unhealthy ($S), restarting" >> /var/log/watchdog.log
+            docker restart openclaw-gateway
+          fi
+          sleep 15
+        done

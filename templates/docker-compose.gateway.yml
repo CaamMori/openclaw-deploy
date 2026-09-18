@@ -27,7 +27,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-    pids: -1  # -1 = no pids cgroup cap; zombie control via restart:unless-stopped + recovery-watchdog
 
   mihomo-tun:
     image: metacubex/mihomo:YOUR_MIHOMO_VERSION_HERE
@@ -49,4 +48,15 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/log/watchdog:/var/log
-    entrypoint: ["/bin/sh", "-c", "while true; do S=$(docker inspect -f '{{.State.Health.Status}}' openclaw-gateway 2>/dev/null); if [ \"$S\" != \"healthy\" ]; then echo \"[$(date)] Gateway unhealthy ($S), restarting\" >> /var/log/watchdog.log; docker restart openclaw-gateway; fi; sleep 15; done"]
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        while true; do
+          S=$(docker inspect -f '{{.State.Health.Status}}' openclaw-gateway 2>/dev/null)
+          if [ "$S" != "healthy" ]; then
+            echo "[$(date)] Gateway unhealthy ($S), restarting" >> /var/log/watchdog.log
+            docker restart openclaw-gateway
+          fi
+          sleep 15
+        done
