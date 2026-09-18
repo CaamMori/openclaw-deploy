@@ -110,8 +110,10 @@ openclaw health && openclaw doctor
 
 | 脚本 | 用途 | 建议 cron |
 |---|---|---|
-| `selfcheck.py` | 22 项健康检查 | `*/10 * * * *` |
-| `selfcheck-quick-cron.sh` | cron 封装，调用 selfcheck.py | `*/10 * * * *` |
+| `selfcheck.py` | 22 项健康检查（支持 `--quick` 轻量 9 项、`--write-state` 写状态） | `*/10 * * * *` |
+| `selfcheck-quick-cron.sh` | cron 封装，调用 `selfcheck.py --quick --write-state` | `*/10 * * * *` |
+
+> **自检状态文件**：cron 每 10 分钟将结果写入 `/var/lib/openclaw/selfcheck-state.json`（含 timestamp、passed/failed 计数及逐项明细）。自检面板直接读取此文件，无需重新执行检查。
 | `mihomo-guard.sh` | 代理故障自动切换 | `*/5 * * * *` |
 | `ensure-browser.sh` | Chromium 自愈 | `*/10 * * * *` |
 | `ensure-telegram-alive.sh` | Telegram 存活保活 | `*/5 * * * *` |
