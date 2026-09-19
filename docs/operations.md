@@ -16,6 +16,7 @@
 | */30 min | ensure-skill-bins.sh | skills CLI self-heal |
 | 04:17 daily | nightly-backup.sh | Full config backup, keep 7 |
 | 04:30 daily | gen-env-snapshot.sh | Generate environment snapshot |
+| 17 */6 * * * | stale_alert.sh | Task stale guard (24h+ alert, deduplicated) |
 
 ### Systemd Services
 
@@ -24,6 +25,7 @@
 | ocwatch | 60s health monitoring, TG alerts |
 | openclaw-recovery-watchdog | Gateway liveness watchdog (15s) |
 | te-daemon | Task engine daemon |
+| taskboard | Web dashboard (http://172.16.0.90:8080/board/) |
 
 ## Configuration Changes
 

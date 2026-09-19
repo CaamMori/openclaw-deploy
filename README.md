@@ -120,6 +120,9 @@ openclaw health && openclaw doctor
 | `nightly-backup.sh` | 夜间备份 | `0 4 * * *` |
 | `pin-sbx-restart.sh` | 沙箱容器固定重启 | 按需 |
 | `entrypoint.sh` | 启动前锁清理 | 容器 entrypoint |
+| `task-engine/taskctl.py` | 任务创建/运行/验收（含 `--accept`/`reset`） | 按需 |
+| `task-engine/stale_guard.py` | 停滞看门狗（只读检测） | `17 */6 * * *` |
+| `task-engine/stale_alert.sh` | 停滞告警（带去重） | `17 */6 * * *` |
 
 ## 必读文档
 
