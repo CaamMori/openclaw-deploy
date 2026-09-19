@@ -1,14 +1,14 @@
 {
   "meta": { "lastTouchedVersion": "2026.9.4" },
   "gateway": {
-    "auth": { "token": "***" },
-    "bind": "loopback"
+    "auth": { "token": "${OPENCLAW_GATEWAY_TOKEN}" },
+    "bind": "127.0.0.1"
   },
   "channels": {
     "telegram": {
       "enabled": true,
-      "token": "***",
-      "allowFrom": ["tg:YOUR_TELEGRAM_USER_ID"],
+      "tokenFile": "/data/etc/openclaw/telegram-bot-token",
+      "allowFrom": ["tg:${TELEGRAM_OWNER_ID}"],
       "streaming": "partial"
     }
   },

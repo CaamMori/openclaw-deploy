@@ -140,7 +140,7 @@ openclaw health && openclaw doctor
 - `openclaw.json` 和 `runtime.env` 权限设为 600
 - API key 走 `${ENV}` 变量，不硬编码
 - Telegram allowFrom 仅限授权用户
-- 配置 `gateway.bind` 设为 loopback
+- 配置 `gateway.bind` 设为 `127.0.0.1`
 
 ## License
 

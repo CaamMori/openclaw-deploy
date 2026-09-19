@@ -9,14 +9,12 @@
 | */2 min | pin-sbx-restart.sh | Sandbox restart policy drift prevention |
 | */2 min | mihomo-guard.sh | Probe model API, auto-switch node, TG alert if all dead 6min |
 | */3 min | ensure-telegram-alive.sh | Telegram polling keepalive |
-| */5 min | openclaw-cfg-guard.py | Config drift prevention |
-| */5 min | ensure-browser-alive.sh | Chromium presence + bundle self-heal |
-| */5 min | fix-gateway-dns.sh | resolv.conf rollback prevention |
+| */5 min | ensure-browser.sh | Chromium presence + bundle self-heal |
 | */10 min | selfcheck-quick-cron.sh | Quick check (silent if green, alert if abnormal) |
-| */30 min | ensure-skill-bins.sh | skills CLI self-heal |
 | 04:17 daily | nightly-backup.sh | Full config backup, keep 7 |
-| 04:30 daily | gen-env-snapshot.sh | Generate environment snapshot |
 | 17 */6 * * * | stale_alert.sh | Task stale guard (24h+ alert, deduplicated) |
+
+> 注：`openclaw-cfg-guard.py`、`fix-gateway-dns.sh`、`ensure-skill-bins.sh`、`gen-env-snapshot.sh` 当前仓库尚未提供，部署前请确认文件存在或从其他来源补齐。
 
 ### Systemd Services
 
