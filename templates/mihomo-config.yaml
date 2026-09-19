@@ -7,7 +7,9 @@ allow-lan: false
 mode: rule
 log-level: info
 external-controller: 127.0.0.1:9090
-secret: ""
+# MUST CHANGE: 设置一个强密码，避免任何人能访问 9090 的人控制 mihomo
+# 在 gateway netns 内虽不可从外部直达，但仍属于安全基线。
+secret: "YOUR_MIHOMO_SECRET_HERE"
 
 tun:
   enable: true
@@ -30,9 +32,11 @@ dns:
     - "+.local"
 
 proxies:
+  # MUST CHANGE: 192.0.2.1 是 TEST-NET-1 保留地址，无法真实连接。
+  # 替换为你的真实代理节点，或从订阅转换得到完整配置。
   - name: "PROXY_NODE_1"
     type: vless
-    server: 192.0.2.1
+    server: YOUR_PROXY_SERVER_HERE
     port: 443
     uuid: YOUR_UUID_HERE
     tls: true

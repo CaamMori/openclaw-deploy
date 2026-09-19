@@ -46,10 +46,17 @@ read -rp "  Telegram user ID (@userinfobot): " INPUT_TG_ID
 read -rp "  GitHub token (optional): " INPUT_GH
 read -rp "  Timezone [Asia/Shanghai]: " INPUT_TZ
 INPUT_TZ="${INPUT_TZ:-Asia/Shanghai}"
+
+# Telegram bot token 写入独立文件，不进入 runtime.env，降低暴露面
+touch /data/etc/openclaw/telegram-bot-token
+chmod 600 /data/etc/openclaw/telegram-bot-token
+[ -n "$INPUT_TG_TOKEN" ] && printf '%s' "$INPUT_TG_TOKEN" > /data/etc/openclaw/telegram-bot-token
+
 cat > "$ENV_TARGET" <<ENVEOF
 OPENCLAW_GATEWAY_TOKEN=$INPUT_TOKEN
-TELEGRAM_BOT_TOKEN=$INPUT_TG_TOKEN
 TELEGRAM_OWNER_ID=$INPUT_TG_ID
+TE_ALERT_TARGET=$INPUT_TG_ID
+MIHOMO_SECRET=$(openssl rand -hex 16 2>/dev/null || head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')
 GH_TOKEN=$INPUT_GH
 TZ=$INPUT_TZ
 ENVEOF
@@ -178,7 +185,9 @@ step "Customizing docker-compose..."
 DC="/data/scripts/docker-compose.gateway.yml"
 if [ -f "$DC" ]; then GID=$(stat -c '%g' /var/run/docker.sock 2>/dev/null || echo "999"); sed -i "s/YOUR_DOCKER_GROUP_ID/$GID/g" "$DC"; info "Docker GID: $GID"
 VER=$(openclaw --version 2>/dev/null | grep -oP '[\d.]+' | head -1 || echo "latest"); sed -i "s/YOUR_OPENCLAW_VERSION_HERE/$VER/g" "$DC"; info "OpenClaw: $VER"
-sed -i "s/YOUR_MIHOMO_VERSION_HERE/latest/g" "$DC"; info "mihomo: latest"; fi
+sed -i "s/YOUR_MIHOMO_VERSION_HERE/latest/g" "$DC"; info "mihomo: latest"
+MSEC=$(grep -E '^MIHOMO_SECRET=' "$ENV_TARGET" | cut -d= -f2- || echo "")
+[ -n "$MSEC" ] && sed -i "s/YOUR_MIHOMO_SECRET_HERE/$MSEC/g" /data/etc/mihomo/config.yaml && info "mihomo secret set"; fi
 
 step "Installing scripts..."
 for s in selfcheck.py selfcheck-quick-cron.sh mihomo-guard.sh ensure-browser.sh ensure-telegram-alive.sh nightly-backup.sh pin-sbx-restart.sh entrypoint.sh; do [ -f "$SCRIPT_DIR/$s" ] && cp "$SCRIPT_DIR/$s" /usr/local/bin/ && chmod +x /usr/local/bin/$s && info "$s"; done

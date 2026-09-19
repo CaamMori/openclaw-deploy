@@ -155,10 +155,15 @@ def c17():
 
 def c18():
     """Browser recovery bundle exists"""
-    b = Path("/usr/local/lib/openclaw-browser/bundle-full.tar.gz")
-    if b.exists(): return True, "{:.0f}MB".format(b.stat().st_size / 1024 / 1024)
-    c, o = run("find / -name \'bundle-full.tar.gz\' -maxdepth 4 2>/dev/null | head -1")
-    return (c == 0 and bool(o)), "found" if o else "not found"
+    candidates = [
+        Path("/usr/local/lib/openclaw-browser/bundle-full.tar.gz"),
+        Path("/data/opt/openclaw-browser/bundle-full.tar.gz"),
+        Path("/opt/openclaw-browser/bundle-full.tar.gz"),
+    ]
+    for b in candidates:
+        if b.exists():
+            return True, "{:.0f}MB".format(b.stat().st_size / 1024 / 1024)
+    return False, "not found"
 
 def c19():
     """No recent crashes in logs"""

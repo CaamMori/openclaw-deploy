@@ -63,6 +63,6 @@ services:
 
 ```bash
 mkdir -p /data/state/workspace-guest
-chown -1000:1000 /data/state/workspace-guest
+chown -R 1000:1000 /data/state/workspace-guest
 ln -s /data/state/workspace-guest /home/node/.openclaw/workspace-guest
 ```
